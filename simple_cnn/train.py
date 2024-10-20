@@ -79,6 +79,18 @@ if __name__ == '__main__':
     train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
     test_loader = DataLoader(test_dataset, batch_size=1000, shuffle=False)
 
+    # save test dataset
+    mnist_transformed_data = []
+    mnist_label = []
+    for data, label in test_loader:
+        mnist_transformed_data.append(data.numpy())
+        mnist_label.append(label.numpy())
+
+    mnist_transformed_data = np.vstack(mnist_transformed_data)
+    mnist_label = np.hstack(mnist_label)
+    np.save('mnist_data.npy', mnist_transformed_data)
+    np.save('mnist_label.npy', mnist_label)
+
     for epoch in range(10):
         train(model, device, train_loader, optimizer, epoch)
         test(model, device, test_loader)

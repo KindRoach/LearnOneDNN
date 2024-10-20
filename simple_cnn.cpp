@@ -1,6 +1,7 @@
 #include <iostream>
 #include <vector>
 #include <dnnl.hpp>
+#include <npy.hpp>
 
 using namespace dnnl;
 
@@ -129,6 +130,22 @@ public:
           }) {
     }
 
+    void load_weights(const std::string &weights_dir) {
+        load_weight(weights_dir + "/000_conv.weight_float32.npy", conv_weights_mem);
+        load_weight(weights_dir + "/001_conv.bias_float32.npy", conv_bias_mem);
+        load_weight(weights_dir + "/002_fc.weight_float32.npy", fc_weights_mem);
+        load_weight(weights_dir + "/003_fc.bias_float32.npy", fc_bias_mem);
+    }
+
+    static void load_weight(const std::string &weights_file_path, memory &mem) {
+        const auto weights = npy::read_npy<float>(weights_file_path).data;
+        std::memcpy(
+            mem.get_data_handle(),
+            weights.data(),
+            mem.get_desc().get_size()
+        );
+    }
+
     void inference(const engine &eng, stream &str, float *input, float *output) {
         // copy input data
         std::memcpy(
@@ -177,16 +194,27 @@ public:
 };
 
 int main() {
-    std::vector<float> input(1 * 1 * 32 * 32);
-    std::vector<float> output(10);
-
     engine eng(engine::kind::cpu, 0);
     stream str(eng);
 
     SimpleCNN model(eng);
-    model.inference(eng, str, input.data(), output.data());
+    model.load_weights("simple_cnn/weights");
 
-    for (int i = 0; i < output.size(); ++i) {
-        std::cout << "Class " << i << ": " << output[i] << std::endl;
+    // predict on MNIST test dataset
+    auto data = npy::read_npy<float>("simple_cnn/mnist_data.npy").data;
+    auto label = npy::read_npy<int64_t>("simple_cnn/mnist_label.npy").data;
+
+    int size_per_sample = data.size() / label.size();
+    std::vector<float> tmp(10);
+    int acc_count = 0;
+    for (int i = 0; i < label.size(); ++i) {
+        float *data_i = data.data() + i * size_per_sample;
+        model.inference(eng, str, data_i, tmp.data());
+        auto max_it = std::ranges::max_element(tmp);
+        int predict_label = std::distance(tmp.begin(), max_it);
+        int actual_label = label[i];
+        if (predict_label == actual_label) acc_count++;
     }
+
+    std::cout << "acc: " << static_cast<float>(acc_count) / label.size() << std::endl;
 }
