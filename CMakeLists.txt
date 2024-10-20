@@ -5,6 +5,8 @@ set(CMAKE_CXX_STANDARD 20)
 
 find_package(dnnl 3.5.0 REQUIRED)
 
+include_directories("third_party")
+
 # Get a list of all .cpp files in the root directory
 file(GLOB sources RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} "*.cpp")
 
