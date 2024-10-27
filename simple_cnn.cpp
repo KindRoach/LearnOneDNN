@@ -35,9 +35,6 @@ public:
     memory conv_input_mem, conv_weights_mem, conv_bias_mem, conv_output_mem;
     convolution_forward conv;
 
-    // relu layer
-    eltwise_forward relu;
-
     // max pool layer
     memory::desc pool_output_md{
         {1, 10, 13, 13},
@@ -81,28 +78,6 @@ public:
           conv_weights_mem(conv_weights_md, eng),
           conv_bias_mem(conv_bias_md, eng),
           conv_output_mem(conv_output_md, eng),
-          conv({
-              eng,
-              prop_kind::forward_inference,
-              algorithm::convolution_direct,
-              conv_input_md,
-              conv_weights_md,
-              conv_bias_md,
-              conv_output_md,
-              {1, 1},
-              {0, 0,},
-              {0, 0},
-              {0, 0}
-          }),
-
-          relu({
-              eng,
-              prop_kind::forward_inference,
-              algorithm::eltwise_relu,
-              conv_output_md,
-              conv_output_md
-          }),
-
           pool_output_mem(pool_output_md, eng),
           pool({
               eng,
@@ -128,13 +103,37 @@ public:
               fc_bias_md,
               fc_output_md
           }) {
+        // relu post-op
+        post_ops ops;
+        ops.append_eltwise(algorithm::eltwise_relu, 0.f, 0.f);
+
+        primitive_attr attr;
+        attr.set_post_ops(ops);
+
+        // conv with relu post-op
+        conv = convolution_forward{
+            {
+                eng,
+                prop_kind::forward_inference,
+                algorithm::convolution_direct,
+                conv_input_md,
+                conv_weights_md,
+                conv_bias_md,
+                conv_output_md,
+                {1, 1},
+                {0, 0,},
+                {0, 0},
+                {0, 0},
+                attr
+            }
+        };
     }
 
     void load_weights(const std::string &weights_dir) {
-        load_weight(weights_dir + "/000_conv.weight_float32.npy", conv_weights_mem);
-        load_weight(weights_dir + "/001_conv.bias_float32.npy", conv_bias_mem);
-        load_weight(weights_dir + "/002_fc.weight_float32.npy", fc_weights_mem);
-        load_weight(weights_dir + "/003_fc.bias_float32.npy", fc_bias_mem);
+        load_weight(weights_dir + "/conv.weight.npy", conv_weights_mem);
+        load_weight(weights_dir + "/conv.bias.npy", conv_bias_mem);
+        load_weight(weights_dir + "/fc.weight.npy", fc_weights_mem);
+        load_weight(weights_dir + "/fc.bias.npy", fc_bias_mem);
     }
 
     static void load_weight(const std::string &weights_file_path, memory &mem) {
@@ -159,12 +158,6 @@ public:
                 {DNNL_ARG_SRC, conv_input_mem},
                 {DNNL_ARG_WEIGHTS, conv_weights_mem},
                 {DNNL_ARG_BIAS, conv_bias_mem},
-                {DNNL_ARG_DST, conv_output_mem}
-            });
-
-        relu.execute(
-            str, {
-                {DNNL_ARG_SRC, conv_output_mem},
                 {DNNL_ARG_DST, conv_output_mem}
             });
 
@@ -198,7 +191,7 @@ int main() {
     stream str(eng);
 
     SimpleCNN model(eng);
-    model.load_weights("simple_cnn/weights");
+    model.load_weights("simple_cnn/weights/simple_cnn");
 
     // predict on MNIST test dataset
     auto data = npy::read_npy<float>("simple_cnn/mnist_data.npy").data;

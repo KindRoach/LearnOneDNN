@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
-from onnx import shape_inference
+from onnx import shape_inference, TensorProto, numpy_helper
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
 
@@ -62,7 +62,68 @@ def test(model, device, test_loader):
           f'({accuracy:.2f}%)\n')
 
 
-if __name__ == '__main__':
+def save_onnx_model(model, model_name):
+    torch.onnx.export(
+        model, (torch.randn(1, 1, 32, 32),),
+        f"{model_name}.onnx",
+        input_names=['input'],
+        output_names=['output'],
+    )
+    onnx_model = onnx.load(f"{model_name}.onnx")
+    inferred_model = shape_inference.infer_shapes(onnx_model)
+    onnx.save(inferred_model, f"{model_name}.onnx")
+    print("Onnx saved.")
+
+
+def save_weight_from_onnx(onnx_model_path, dtype):
+    # save weight and model
+    weights_dir = f"weights/{dtype}"
+    Path(weights_dir).mkdir(exist_ok=True, parents=True)
+
+    onnx_to_numpy_dtype = {
+        TensorProto.FLOAT: np.float32,
+        TensorProto.FLOAT16: np.float16,
+        TensorProto.DOUBLE: np.float64,
+        TensorProto.INT8: np.int8,
+        TensorProto.INT16: np.int16,
+        TensorProto.INT32: np.int32,
+        TensorProto.INT64: np.int64,
+        TensorProto.UINT8: np.uint8,
+        TensorProto.UINT16: np.uint16,
+    }
+
+    onnx_save_name = [
+        "weight",
+        "bias",
+        "scale",
+        "zero_point",
+    ]
+
+    onnx_not_save_name = [
+        "shape"
+    ]
+
+    model = onnx.load(onnx_model_path)
+
+    # Extract weights (initializers in ONNX model)
+    for initializer in model.graph.initializer:
+        i_name = initializer.name
+        to_save = False
+
+        for name in onnx_save_name:
+            if name in i_name:
+                to_save = True
+
+        for name in onnx_not_save_name:
+            if name in i_name:
+                to_save = False
+
+        if to_save:
+            nparray = numpy_helper.to_array(initializer)
+            np.save(f"{weights_dir}/{i_name}.npy", nparray)
+
+
+def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = SimpleCNN().to(device)
     optimizer = optim.Adam(model.parameters(), lr=0.001)
@@ -91,26 +152,15 @@ if __name__ == '__main__':
     np.save('mnist_data.npy', mnist_transformed_data)
     np.save('mnist_label.npy', mnist_label)
 
+    # train model
     for epoch in range(10):
         train(model, device, train_loader, optimizer, epoch)
         test(model, device, test_loader)
 
     model = model.eval().cpu()
+    save_onnx_model(model, "simple_cnn")
+    save_weight_from_onnx("simple_cnn.onnx", "fp32")
 
-    Path("weights").mkdir(exist_ok=True)
-    model_weights = model.state_dict()
-    for idx, (layer_name, weight) in enumerate(model_weights.items()):
-        weight = weight.numpy()
-        np.save(f'weights/{idx:03d}_{layer_name}_{weight.dtype}.npy', weight)
-    print("Weights saved.")
 
-    torch.onnx.export(
-        model, (torch.randn(1, 1, 32, 32),),
-        "simple_cnn.onnx",
-        input_names=['input'],
-        output_names=['output'],
-    )
-    onnx_model = onnx.load("simple_cnn.onnx")
-    inferred_model = shape_inference.infer_shapes(onnx_model)
-    onnx.save(inferred_model, "simple_cnn.onnx")
-    print("Onnx saved.")
+if __name__ == '__main__':
+    main()
