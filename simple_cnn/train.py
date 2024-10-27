@@ -62,6 +62,12 @@ def test(model, device, test_loader):
           f'({accuracy:.2f}%)\n')
 
 
+def infer_onnx_shape(model_path):
+    onnx_model = onnx.load(model_path)
+    inferred_model = shape_inference.infer_shapes(onnx_model)
+    onnx.save(inferred_model, model_path)
+
+
 def save_onnx_model(model, model_name):
     torch.onnx.export(
         model, (torch.randn(1, 1, 32, 32),),
@@ -69,9 +75,7 @@ def save_onnx_model(model, model_name):
         input_names=['input'],
         output_names=['output'],
     )
-    onnx_model = onnx.load(f"{model_name}.onnx")
-    inferred_model = shape_inference.infer_shapes(onnx_model)
-    onnx.save(inferred_model, f"{model_name}.onnx")
+    infer_onnx_shape(f"{model_name}.onnx")
     print("Onnx saved.")
 
 
@@ -92,35 +96,13 @@ def save_weight_from_onnx(onnx_model_path, dtype):
         TensorProto.UINT16: np.uint16,
     }
 
-    onnx_save_name = [
-        "weight",
-        "bias",
-        "scale",
-        "zero_point",
-    ]
-
-    onnx_not_save_name = [
-        "shape"
-    ]
-
     model = onnx.load(onnx_model_path)
 
     # Extract weights (initializers in ONNX model)
     for initializer in model.graph.initializer:
-        i_name = initializer.name
-        to_save = False
-
-        for name in onnx_save_name:
-            if name in i_name:
-                to_save = True
-
-        for name in onnx_not_save_name:
-            if name in i_name:
-                to_save = False
-
-        if to_save:
-            nparray = numpy_helper.to_array(initializer)
-            np.save(f"{weights_dir}/{i_name}.npy", nparray)
+        i_name = initializer.name.replace("/", "_")
+        nparray = numpy_helper.to_array(initializer)
+        np.save(f"{weights_dir}/{i_name}.npy", nparray)
 
 
 def main():

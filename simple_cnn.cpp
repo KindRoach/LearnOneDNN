@@ -191,7 +191,7 @@ int main() {
     stream str(eng);
 
     SimpleCNN model(eng);
-    model.load_weights("simple_cnn/weights/simple_cnn");
+    model.load_weights("simple_cnn/weights/fp32");
 
     // predict on MNIST test dataset
     auto data = npy::read_npy<float>("simple_cnn/mnist_data.npy").data;
