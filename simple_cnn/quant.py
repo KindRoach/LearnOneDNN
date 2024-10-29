@@ -12,7 +12,7 @@ def dynamic_quant():
     quantized_onnx_model = "simple_cnn_dynamic_quant.onnx"
     quantization.quantize_dynamic(
         onnx_model, quantized_onnx_model,
-        weight_type=QuantType.QUInt8
+        weight_type=QuantType.QInt8
     )
     save_weight_from_onnx(quantized_onnx_model, "int8_dynamic_quant")
     infer_onnx_shape(quantized_onnx_model)
