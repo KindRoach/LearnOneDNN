@@ -8,101 +8,100 @@ using namespace dnnl;
 class SimpleCNN {
 public:
     // convolution layer
-    memory::desc conv_input_md{
-        {1, 1, 32, 32},
-        memory::data_type::f32,
-        memory::format_tag::nchw
-    };
-
-    memory::desc conv_weights_md{
-        {10, 1, 5, 5},
-        memory::data_type::f32,
-        memory::format_tag::oihw
-    };
-
-    memory::desc conv_bias_md{
-        {10},
-        memory::data_type::f32,
-        memory::format_tag::x
-    };
-
-    memory::desc conv_output_md{
-        {1, 10, 28, 28},
-        memory::data_type::f32,
-        memory::format_tag::nchw
-    };
-
+    memory::desc conv_input_md, conv_weights_md, conv_bias_md, conv_output_md;
     memory conv_input_mem, conv_weights_mem, conv_bias_mem, conv_output_mem;
     convolution_forward conv;
 
     // max pool layer
-    memory::desc pool_output_md{
-        {1, 10, 13, 13},
-        memory::data_type::f32,
-        memory::format_tag::nchw
-    };
-
+    memory::desc pool_output_md;
     memory pool_output_mem;
     pooling_forward pool;
 
     // full connection layer
-    memory::desc fc_input_md{
-        {1, 1690},
-        memory::data_type::f32,
-        memory::format_tag::nc
-    };
-
-    memory::desc fc_weights_md{
-        {10, 1690},
-        memory::data_type::f32,
-        memory::format_tag::oi
-    };
-
-    memory::desc fc_bias_md{
-        {10},
-        memory::data_type::f32,
-        memory::format_tag::x
-    };
-
-    memory::desc fc_output_md{
-        {1, 10},
-        memory::data_type::f32,
-        memory::format_tag::nc
-    };
-
+    memory::desc fc_input_md, fc_weights_md, fc_bias_md, fc_output_md;
     memory fc_weights_mem, fc_bias_mem, fc_output_mem;
     inner_product_forward fc;
 
-    explicit SimpleCNN(const engine &eng)
-        : conv_input_mem(conv_input_md, eng),
-          conv_weights_mem(conv_weights_md, eng),
-          conv_bias_mem(conv_bias_md, eng),
-          conv_output_mem(conv_output_md, eng),
-          pool_output_mem(pool_output_md, eng),
-          pool({
-              eng,
-              prop_kind::forward_inference,
-              algorithm::pooling_max,
-              conv_output_md,
-              pool_output_md,
-              {2, 2},
-              {3, 3},
-              {0, 0},
-              {0, 0},
-              {0, 0}
-          }),
+    explicit SimpleCNN(const engine &eng):
+        // max pool layer
+        conv_input_md(
+            {1, 1, 32, 32},
+            memory::data_type::f32,
+            memory::format_tag::nchw
+        ),
+        conv_weights_md(
+            {10, 1, 5, 5},
+            memory::data_type::f32,
+            memory::format_tag::oihw
+        ),
+        conv_bias_md(
+            {10},
+            memory::data_type::f32,
+            memory::format_tag::x
+        ),
+        conv_output_md(
+            {1, 10, 28, 28},
+            memory::data_type::f32,
+            memory::format_tag::nchw
+        ),
+        conv_input_mem(conv_input_md, eng),
+        conv_weights_mem(conv_weights_md, eng),
+        conv_bias_mem(conv_bias_md, eng),
+        conv_output_mem(conv_output_md, eng),
 
-          fc_weights_mem(fc_weights_md, eng),
-          fc_bias_mem(fc_bias_md, eng),
-          fc_output_mem(fc_output_md, eng),
-          fc({
-              eng,
-              prop_kind::forward_inference,
-              fc_input_md,
-              fc_weights_md,
-              fc_bias_md,
-              fc_output_md
-          }) {
+        // max pool layer
+        pool_output_md(
+            {1, 10, 13, 13},
+            memory::data_type::f32,
+            memory::format_tag::nchw
+        ),
+        pool_output_mem(pool_output_md, eng),
+        pool({
+            eng,
+            prop_kind::forward_inference,
+            algorithm::pooling_max,
+            conv_output_md,
+            pool_output_md,
+            {2, 2},
+            {3, 3},
+            {0, 0},
+            {0, 0},
+            {0, 0}
+        }),
+
+        // full connection layer
+        fc_input_md(
+            {1, 1690},
+            memory::data_type::f32,
+            memory::format_tag::nc
+        ),
+        fc_weights_md(
+            {10, 1690},
+            memory::data_type::f32,
+            memory::format_tag::oi
+        ),
+        fc_bias_md(
+            {10},
+            memory::data_type::f32,
+            memory::format_tag::x
+        ),
+        fc_output_md(
+            {1, 10},
+            memory::data_type::f32,
+            memory::format_tag::nc
+        ),
+        fc_weights_mem(fc_weights_md, eng),
+        fc_bias_mem(fc_bias_md, eng),
+        fc_output_mem(fc_output_md, eng),
+        fc({
+            eng,
+            prop_kind::forward_inference,
+            fc_input_md,
+            fc_weights_md,
+            fc_bias_md,
+            fc_output_md
+        }) {
+
         // relu post-op
         post_ops ops;
         ops.append_eltwise(algorithm::eltwise_relu, 0.f, 0.f);

@@ -20,19 +20,22 @@ int main() {
     memory::dims conv_strides = {1, 1};
     memory::dims conv_padding = {1, 1};
 
-    // Set scaling mask
-    const int src_mask = 0;
-    const int weight_mask = 0;
-    const int dst_mask = 0;
-
     // Input buffers
     auto user_src_memory = memory({{conv_src_tz}, dt::f32, tag::nchw}, eng);
+
+    // Some code to write input data to user_src_memory
+    // ...
 
     // Create convolution memory descriptors
     auto conv_src_md = memory::desc({conv_src_tz}, dt::u8, tag::nchw);
     auto conv_bias_md = memory::desc({conv_bias_tz}, dt::s32, tag::x);
     auto conv_weights_md = memory::desc({conv_weights_tz}, dt::s8, tag::iohw);
     auto conv_dst_md = memory::desc({conv_dst_tz}, dt::u8, tag::nchw);
+
+    // Set scaling mask
+    const int src_mask = 0;
+    const int weight_mask = 0;
+    const int dst_mask = 0;
 
     // Configure scaling and zero points
     primitive_attr conv_attr;
@@ -87,12 +90,12 @@ int main() {
     // Scale and zero_point memory
     auto src_scale_md = memory::desc({1}, dt::f32, tag::x);
     auto src_scale_memory = memory(src_scale_md, eng);
-    auto src_zero_point_md = memory::desc({1}, dt::f32, tag::x);
+    auto src_zero_point_md = memory::desc({1}, dt::s32, tag::x);
     auto src_zero_point_memory = memory(src_zero_point_md, eng);
 
     auto bias_scale_md = memory::desc({1}, dt::f32, tag::x);
     auto bias_scale_memory = memory(bias_scale_md, eng);
-    auto bias_zero_point_md = memory::desc({1}, dt::f32, tag::x);
+    auto bias_zero_point_md = memory::desc({1}, dt::s32, tag::x);
     auto bias_zero_point_memory = memory(bias_zero_point_md, eng);
 
     auto wei_scale_md = memory::desc({1}, dt::f32, tag::x);
@@ -100,8 +103,11 @@ int main() {
 
     auto dst_scale_md = memory::desc({1}, dt::f32, tag::x);
     auto dst_scale_memory = memory(dst_scale_md, eng);
-    auto dst_zero_point_md = memory::desc({1}, dt::f32, tag::x);
+    auto dst_zero_point_md = memory::desc({1}, dt::s32, tag::x);
     auto dst_zero_point_memory = memory(dst_zero_point_md, eng);
+
+    // Some code to write scale and zero_point to above memory
+    // ...
 
     // Quantize input data
     primitive_attr src_attr;
