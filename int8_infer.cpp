@@ -93,11 +93,6 @@ int main() {
     auto src_zero_point_md = memory::desc({1}, dt::s32, tag::x);
     auto src_zero_point_memory = memory(src_zero_point_md, eng);
 
-    auto bias_scale_md = memory::desc({1}, dt::f32, tag::x);
-    auto bias_scale_memory = memory(bias_scale_md, eng);
-    auto bias_zero_point_md = memory::desc({1}, dt::s32, tag::x);
-    auto bias_zero_point_memory = memory(bias_zero_point_md, eng);
-
     auto wei_scale_md = memory::desc({1}, dt::f32, tag::x);
     auto wei_scale_memory = memory(wei_scale_md, eng);
 

@@ -17,8 +17,8 @@ public:
     convolution_forward conv;
 
     // convolution scale and zero points
-    memory conv_input_scale_mem, conv_weights_scale_mem, conv_bias_scale_mem, conv_output_scale_mem;
-    memory conv_input_zero_point_mem, conv_bias_zero_point_mem, conv_output_zero_point_mem;
+    memory conv_input_scale_mem, conv_weights_scale_mem, conv_output_scale_mem;
+    memory conv_input_zero_point_mem, conv_output_zero_point_mem;
 
     // max pool layer
     memory::desc pool_output_md;
@@ -31,8 +31,8 @@ public:
     inner_product_forward fc;
 
     // full connection scale and zero points
-    memory fc_weights_scale_mem, fc_bias_scale_mem, fc_output_scale_mem;
-    memory fc_bias_zero_point_mem, fc_output_zero_point_mem;
+    memory fc_weights_scale_mem, fc_output_scale_mem;
+    memory fc_output_zero_point_mem;
 
     explicit SimpleCNN(const engine &eng):
         // user input & output
@@ -78,11 +78,9 @@ public:
         // convolution scale and zero points
         conv_input_scale_mem({{1}, memory::data_type::f32, memory::format_tag::x}, eng),
         conv_weights_scale_mem({{1}, memory::data_type::f32, memory::format_tag::x}, eng),
-        conv_bias_scale_mem({{1}, memory::data_type::f32, memory::format_tag::x}, eng),
         conv_output_scale_mem({{1}, memory::data_type::f32, memory::format_tag::x}, eng),
-        conv_input_zero_point_mem({{1}, memory::data_type::s32, memory::format_tag::x}, eng),
-        conv_bias_zero_point_mem({{1}, memory::data_type::s32, memory::format_tag::x}, eng),
-        conv_output_zero_point_mem({{1}, memory::data_type::s32, memory::format_tag::x}, eng),
+        conv_input_zero_point_mem({{1}, memory::data_type::u8, memory::format_tag::x}, eng),
+        conv_output_zero_point_mem({{1}, memory::data_type::u8, memory::format_tag::x}, eng),
 
         // max pool layer
         pool_output_md(
@@ -131,10 +129,8 @@ public:
 
         // full connection scale and zero points
         fc_weights_scale_mem({{1}, memory::data_type::f32, memory::format_tag::x}, eng),
-        fc_bias_scale_mem({{1}, memory::data_type::f32, memory::format_tag::x}, eng),
         fc_output_scale_mem({{1}, memory::data_type::f32, memory::format_tag::x}, eng),
-        fc_bias_zero_point_mem({{1}, memory::data_type::s32, memory::format_tag::x}, eng),
-        fc_output_zero_point_mem({{1}, memory::data_type::s32, memory::format_tag::x}, eng) {
+        fc_output_zero_point_mem({{1}, memory::data_type::u8, memory::format_tag::x}, eng) {
         // conv with quant and relu post-op
         primitive_attr conv_attr;
 
@@ -224,6 +220,7 @@ public:
 
         primitive_attr input_attr;
         input_attr.set_scales_mask(DNNL_ARG_DST, 0);
+        input_attr.set_zero_points_mask(DNNL_ARG_DST, 0);
         auto src_reorder_pd = reorder::primitive_desc(
             eng, user_input_mem.get_desc(),
             eng, conv_input_mem.get_desc(), input_attr);
@@ -235,6 +232,8 @@ public:
                 {DNNL_ARG_ATTR_SCALES | DNNL_ARG_DST, conv_input_scale_mem},
                 {DNNL_ARG_ATTR_ZERO_POINTS | DNNL_ARG_DST, conv_input_zero_point_mem}
             });
+
+        str.wait();
 
         // execute primitives
         conv.execute(
@@ -255,6 +254,8 @@ public:
                 {DNNL_ARG_SRC, conv_output_mem},
                 {DNNL_ARG_DST, pool_output_mem}
             });
+
+        str.wait();
 
         // reuse pool_output_mem as fc_input_mem
         auto fc_input_mem = memory(fc_input_md, eng, pool_output_mem.get_data_handle());
