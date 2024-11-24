@@ -83,19 +83,6 @@ def save_weight_from_onnx(onnx_model_path, dtype):
     # save weight and model
     weights_dir = f"weights/{dtype}"
     Path(weights_dir).mkdir(exist_ok=True, parents=True)
-
-    onnx_to_numpy_dtype = {
-        TensorProto.FLOAT: np.float32,
-        TensorProto.FLOAT16: np.float16,
-        TensorProto.DOUBLE: np.float64,
-        TensorProto.INT8: np.int8,
-        TensorProto.INT16: np.int16,
-        TensorProto.INT32: np.int32,
-        TensorProto.INT64: np.int64,
-        TensorProto.UINT8: np.uint8,
-        TensorProto.UINT16: np.uint16,
-    }
-
     model = onnx.load(onnx_model_path)
 
     # Extract weights (initializers in ONNX model)

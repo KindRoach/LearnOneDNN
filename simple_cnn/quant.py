@@ -43,6 +43,15 @@ def static_quant():
         weight_type=QuantType.QInt8
     )
     save_weight_from_onnx(quantized_onnx_model, "int8_static_quant")
+
+    # fix conv.bias: oneDNN conv bias == Onnx QLinearConv bias * x_scale * w_scale
+    weights_dir = "weights/int8_static_quant"
+    conv_bias = np.load(f"{weights_dir}/conv.bias_quantized.npy")
+    conv_x_scale = np.load(f"{weights_dir}/input_scale.npy")
+    conv_w_scale = np.load(f"{weights_dir}/conv.weight_scale.npy")
+    conv_bias = (conv_bias * conv_x_scale * conv_w_scale).astype(conv_bias.dtype)
+    np.save(f"{weights_dir}/conv.bias_quantized.npy", conv_bias)
+
     infer_onnx_shape(quantized_onnx_model)
 
 
