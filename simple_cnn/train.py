@@ -4,11 +4,11 @@ import numpy as np
 import onnx
 import torch
 import torch.nn as nn
-import torch.optim as optim
 import torch.nn.functional as F
-from onnx import shape_inference, TensorProto, numpy_helper
-from torchvision import datasets, transforms
+import torch.optim as optim
+from onnx import shape_inference, numpy_helper
 from torch.utils.data import DataLoader
+from torchvision import datasets, transforms
 
 
 class SimpleCNN(nn.Module):
